@@ -173,13 +173,13 @@ class ImagePage(tk.Frame):
         
     def profile_coords(self, event):
 
-        #lets you click and records four sets of co-ordinates
+        #lets user click and records four sets of coordinates
         ix, iy = event.xdata, event.ydata
         self.coords.append((ix, iy))
 
         if len(self.coords) > 3:
-            #disconnect and calculate profiles
             self.f.canvas.mpl_disconnect(self.cid)
+            # if a 3D image is loaded get the profile of the current slice
             if self.pixels.ndim < 3:
                 analysed_pixels, horf, hors, verf, vers = img_methods.profiles(self.pixels, self.coords)
             else:
@@ -188,7 +188,8 @@ class ImagePage(tk.Frame):
             self.a.clear()
             self.a.imshow(analysed_pixels)       
             self.canvas.draw()
-            print(horf, hors, verf, vers)
+
+            messagebox.showinfo("Profile Results", "Hor F: " + str(horf) + " Hor S: " + str(hors) + " Ver F: " + str(verf) + " Ver S: " + str(vers))
 
 app = ImageViewer()
 app.mainloop()
