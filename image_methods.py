@@ -52,45 +52,44 @@ def PIU(pixels):
 
 def profiles(pixels, coords):
 
-        #have to use np.copy, can't directly assign as something strange happens...
         profile_pix = np.copy(pixels)
         #set column with x, row range with y, y2
         x, y, y2 = int(coords[0][0]), int(coords[0][1]), int(coords[1][1])
-
         #set row with y3, row ranage with x3, x4
         x3, y3, x4 = int(coords[2][0]), int(coords[2][1]), int(coords[3][0])
                  
-        #show on graph the chosen range, width is thickness of rectangle to average over in pixels
-        #15 works for a fairly high res image, e.g. a scanner import of a film profile 
-        width = 15
-        #just setting a different shades for the profile ranges so that we plot them and yet the user see 
+        #show on graph the chosen range
+        #take the median profile over a rectangle set dynamically to be 1% of the y range, so artefacts such as dead pixels will be ignored
+        width = int(abs(y-y2)*0.01)
+        #set different shades for the profile ranges so that the user can see 
         profile_pix[y:y2,x-width:x+width] = 10
         profile_pix[y3-width:y3+width,x3:x4] = 10
 
-        #think the hor and ver labels are the wrong way around 
-        #copy the selected ranges for each axis and take the median of the rows/columns to average out any artefacts
-        hor_data = np.copy(pixels[y:y2,x-width:x+width])
-        hor_data = np.median(hor_data, axis=1)
-        ver_data = np.copy(pixels[y3-width:y3+width, x3:x4])
-        ver_data = np.median(ver_data, axis=0)
+        #copy the selected ranges for each axis
+        hor_data = np.copy(pixels[y3-width:y3+width, x3:x4])
+        hor_data = np.median(hor_data, axis=0)
+        ver_data = np.copy(pixels[y:y2,x-width:x+width])
+        ver_data = np.median(ver_data, axis=1)
         
         #process the chosen profile ranges, get three different sections of the range
         hor_prof, hor_fwhm, hor_beam, hor_flatness, hor_symmetry = process_profile(hor_data, "X")
         ver_prof, ver_fwhm, ver_beam, ver_flatness, ver_symmetry = process_profile(ver_data, "Y")
         
-        #could do with titles/axes to embellish stuff
-        plt.figure(1)
-        plt.plot(hor_prof)
-        plt.plot(hor_fwhm)
-        plt.plot(hor_beam)
-        plt.figure(2)
-        plt.plot(ver_prof)
-        plt.plot(ver_fwhm)
-        plt.plot(ver_beam)
-        #block allows programme to continue, otherwise it will wait until plts destroyed
+        fig = plt.figure()
+        ax_x = plt.subplot(1,2,1)
+        ax_y = plt.subplot(1,2,2)
+        fig.canvas.set_window_title('Profiles')
+        ax_x.set_ylabel('Intensity (%)')
+        ax_x.set_title('X Profile')
+        ax_y.set_title('Y Profile')
+        ax_x.plot(hor_prof)
+        ax_x.plot(hor_fwhm)
+        ax_x.plot(hor_beam)
+        ax_y.plot(ver_prof)
+        ax_y.plot(ver_fwhm)
+        ax_y.plot(ver_beam)
         plt.show(block=False)
 
-        #not returning these values for some reason, but it was plaotting?
         return profile_pix, hor_flatness, hor_symmetry, ver_flatness, ver_symmetry
 
     
@@ -128,9 +127,8 @@ def process_profile(profile, axis):
         fwhm_plot = profile[first_half_max:second_half_max]
         beam = profile[first_half_max+int(fwhm/10):second_half_max-int(fwhm/10)]
 
-        #calc flatness and symmetry according to equations
+        #calc flatness
         flatness = 100*((max(beam)-min(beam))/(max(beam)+min(beam)))
-        #print("Flatness: " + str(flatness))
 
         #if useful beam is an odd integer remove a central data point, otherwise the symmetry calculations fail
         #sym_array outputs all of the individual ratios of the data points from each side of the profile to compare with the manual method
@@ -139,14 +137,11 @@ def process_profile(profile, axis):
         else:
             beam = np.delete(beam, int(len(beam)/2)+1)
             sym_array = beam[0:int(len(beam)/2)]/np.flip(beam[int(len(beam)/2):len(beam)])
-        
-        #np.savetxt('P:/RP1Rotation/RP1-C-4 EvaluateBeamProfileAndDoseOutputkVMachine/Films/output' + axis + '.txt' , sym_array)
 
         #calculate symmetry in a different way by summing over the whole area of each profile half and finding the difference
         symmetry = 100*(np.sum(beam[0:int(len(beam)/2)]) - np.sum(beam[int(len(beam)/2):len(beam)]))/(np.sum(beam[0:int(len(beam)/2)]) + np.sum(beam[int(len(beam)/2):len(beam)]))
-        #print("Symmetry: " + str(symmetry))
 
-        #hacky, concat nans to shift into correct plotting position after the cut off from the first half maximum  
+        #hconcat nans to shift into correct plotting position after the cut off from the first half maximum  
         fwhm_plot = np.concatenate([np.full(first_half_max, np.nan),fwhm_plot])
         beam = np.concatenate([np.full(first_half_max+int(fwhm/10),np.nan),beam])
         
