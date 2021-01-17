@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 def PIU(pixels):
 
     #create a mask covering a central portion of the circular image, assuming it is centrally positioned
-    nrows, ncols = pixels.shape
+    nrows = pixels.shape[0]
+    ncols = pixels.shape[1]
     centre = [nrows/2,ncols/2]
     #5.5 is jut an emperical cut-off for the radius of the mask 
     radius = min(nrows, ncols)/5.5 
@@ -57,10 +58,16 @@ def profiles(pixels, coords):
         x, y, y2 = int(coords[0][0]), int(coords[0][1]), int(coords[1][1])
         #set row with y3, row ranage with x3, x4
         x3, y3, x4 = int(coords[2][0]), int(coords[2][1]), int(coords[3][0])
+
+        print(x, y, y2)
                  
         #show on graph the chosen range
         #take the median profile over a rectangle set dynamically to be 1% of the y range, so artefacts such as dead pixels will be ignored
         width = int(abs(y-y2)*0.01)
+
+        if width == 0:
+            width = 1
+            
         #set different shades for the profile ranges so that the user can see 
         profile_pix[y:y2,x-width:x+width] = 10
         profile_pix[y3-width:y3+width,x3:x4] = 10

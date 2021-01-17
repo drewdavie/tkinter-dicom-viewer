@@ -6,7 +6,7 @@
 
 import tkinter as tk
 from tkinter import messagebox
-from tkinter.filedialog import askopenfilename
+from tkinter.filedialog import askopenfilenames
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
@@ -97,20 +97,27 @@ class ImagePage(tk.Frame):
                                            
     def load_file(self):
 
-        #increase range to png, tif, whatever
-        filename = askopenfilename(filetypes=(("DICOM Files", "*.dcm"), ("JPEG Files", "*.jpg"), ("All Files", "*.*")))
+        filenames = askopenfilenames(filetypes=(("DICOM Files", "*.dcm"), ("JPEG Files", "*.jpg"), ("TIF Files", "*.tif"), ("PNG Files", "*.png"),  ("All Files", "*.*")))
+        filenames = list(filenames)
         
-        if not filename:
+        if not filenames:
             return
+
+        self.pixels = []
+
+        for filename in filenames:
         
-        if filename.endswith('.dcm'):
-            ds=pydicom.read_file(filename)
-            self.pixels = ds.pixel_array
-        else:
-            #convert image to grayscale so that it can be analysed as a 2D arrayd in just 2D
-            self.pixels = Image.open(filename).convert('L')
-            self.pixels = np.asarray(self.pixels, dtype="int16")
-        
+            if filename.endswith('.dcm'):
+                ds=pydicom.read_file(filename)
+                image = np.asarray(ds.pixel_array)
+                self.pixels.append(image)
+            else:
+                #convert image to grayscale so that it can be analysed as a 2D array in just 2D
+                image = Image.open(filename).convert('L')
+                image = np.asarray(image, dtype="int16")
+                self.pixels.append(image)
+
+        self.pixels = np.asarray(self.pixels)
         self.plot_image()
  
     def plot_image(self):
@@ -158,7 +165,7 @@ class ImagePage(tk.Frame):
 
         if len(self.pixels) > 0:
             method_name = method.__name__
-            result, analysed_pixels = method(self.pixels)
+            result, analysed_pixels = method(self.pixels[self.ind])
             messagebox.showinfo(method_name, method_name + ": " + str(result))
             self.a.clear()
             self.a.imshow(analysed_pixels)       
