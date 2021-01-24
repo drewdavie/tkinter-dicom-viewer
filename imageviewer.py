@@ -17,8 +17,29 @@ import image_methods as img_methods
 import importlib
 importlib.reload(img_methods)
 from PIL import Image
+import sys, os
+import logging
+import logging.handlers
+import traceback
 
 LARGE_FONT= ("Verdana", 12)
+
+#this block manages cases where we want the cwd but the script has been compiled into an executable
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+else:
+    application_path = os.getcwd()
+
+if os.path.isdir(application_path + "\\Debug\\") is False:
+    os.mkdir(application_path + "\\Debug\\")
+
+LOG_FILENAME = application_path + "\\Debug\\debug.log"
+logger = logging.getLogger()
+logger.setLevel(logging.ERROR)
+fh = logging.FileHandler(LOG_FILENAME)
+f_format = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh.setFormatter(f_format)
+logger.addHandler(fh)
 
 #parentheses on a class indicate inheritance
 class ImageViewer(tk.Tk):
@@ -97,28 +118,38 @@ class ImagePage(tk.Frame):
                                            
     def load_file(self):
 
-        filenames = askopenfilenames(filetypes=(("DICOM Files", "*.dcm"), ("JPEG Files", "*.jpg"), ("TIF Files", "*.tif"), ("PNG Files", "*.png"),  ("All Files", "*.*")))
-        filenames = list(filenames)
-        
-        if not filenames:
-            return
+        try:
+            filenames = askopenfilenames(initialdir=application_path, filetypes=(("DICOM Files", "*.dcm"), ("JPEG Files", "*.jpg"), ("TIF Files", "*.tif"), ("PNG Files", "*.png"),  ("All Files", "*.*")), title="Open Image File")
+            filenames = list(filenames)
+            
+            if not filenames:
+                return
 
-        self.pixels = []
+            self.pixels = []
 
-        for filename in filenames:
-        
-            if filename.endswith('.dcm'):
-                ds=pydicom.read_file(filename)
-                image = np.asarray(ds.pixel_array)
-                self.pixels.append(image)
-            else:
-                #convert image to grayscale so that it can be analysed as a 2D array in just 2D
-                image = Image.open(filename).convert('L')
-                image = np.asarray(image, dtype="int16")
-                self.pixels.append(image)
+            for filename in filenames:
+            
+                if filename.endswith('.dcm'):
+                    ds=pydicom.read_file(filename)
+                    image = np.asarray(ds.pixel_array)
+                    # handle a 3D pixel_array from one file
+                    if image.ndim > 2:
+                        for im in image:
+                            self.pixels.append(im)
+                    else:
+                        self.pixels.append(image)
+                else:
+                    #convert image to grayscale so that it can be analysed as a 2D array in just 2D
+                    image = Image.open(filename).convert('L')
+                    image = np.asarray(image, dtype="int16")
+                    self.pixels.append(image)
 
-        self.pixels = np.asarray(self.pixels)
-        self.plot_image()
+            self.pixels = np.asarray(self.pixels)
+            self.plot_image()
+
+        except Exception as e:
+            messagebox.showinfo(title="Unable to Load File", message="Unable to load file, please choose another file or consult the debug log.")
+            logger.error(e, exc_info=True)
  
     def plot_image(self):
 
@@ -163,13 +194,17 @@ class ImagePage(tk.Frame):
     def get_results(self, method):
         #generic function for obtaining a numerical parameter such as uniformity
 
-        if len(self.pixels) > 0:
+        try:
             method_name = method.__name__
             result, analysed_pixels = method(self.pixels[self.ind])
             messagebox.showinfo(method_name, method_name + ": " + str(result))
             self.a.clear()
             self.a.imshow(analysed_pixels)       
             self.canvas.draw()
+            
+        except Exception as e:
+                messagebox.showinfo(title="Unable to Perform Analysis", message="Unable to perform analysis, ensure a file is loaded or consult the debug log.")
+                logger.error(e, exc_info=True)
 
     def profile_click(self):
 
@@ -186,17 +221,23 @@ class ImagePage(tk.Frame):
 
         if len(self.coords) > 3:
             self.f.canvas.mpl_disconnect(self.cid)
-            # if a 3D image is loaded get the profile of the current slice
-            if self.pixels.ndim < 3:
-                analysed_pixels, horf, hors, verf, vers = img_methods.profiles(self.pixels, self.coords)
-            else:
-                analysed_pixels, horf, hors, verf, vers = img_methods.profiles(self.pixels[self.ind], self.coords)
-            
-            self.a.clear()
-            self.a.imshow(analysed_pixels)       
-            self.canvas.draw()
 
-            messagebox.showinfo("Profile Results", "Hor F: " + str(horf) + " Hor S: " + str(hors) + " Ver F: " + str(verf) + " Ver S: " + str(vers))
+            try:
+                # if a 3D image is loaded get the profile of the current slice
+                if self.pixels.ndim < 3:
+                    analysed_pixels, horf, hors, verf, vers = img_methods.profiles(self.pixels, self.coords)
+                else:
+                    analysed_pixels, horf, hors, verf, vers = img_methods.profiles(self.pixels[self.ind], self.coords)
+                
+                self.a.clear()
+                self.a.imshow(analysed_pixels)       
+                self.canvas.draw()
+
+                messagebox.showinfo("Profile Results", "Hor F: " + str(horf) + " Hor S: " + str(hors) + " Ver F: " + str(verf) + " Ver S: " + str(vers))
+
+            except Exception as e:
+                messagebox.showinfo(title="Unable to Calculate Profiles", message="Unable to calculate profiles, please try again in another area or consult the debug log.")
+                logger.error(e, exc_info=True)
 
 app = ImageViewer()
 app.mainloop()
