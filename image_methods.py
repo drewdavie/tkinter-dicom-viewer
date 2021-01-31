@@ -58,8 +58,6 @@ def profiles(pixels, coords):
         x, y, y2 = int(coords[0][0]), int(coords[0][1]), int(coords[1][1])
         #set row with y3, row ranage with x3, x4
         x3, y3, x4 = int(coords[2][0]), int(coords[2][1]), int(coords[3][0])
-
-        print(x, y, y2)
                  
         #show on graph the chosen range
         #take the median profile over a rectangle set dynamically to be 1% of the y range, so artefacts such as dead pixels will be ignored
